@@ -243,3 +243,11 @@ def carte_departement(code: str, couleur: str = "#4A90D9", couleur_contour: str 
         remplissage, fond, 6, 6, 150,
         fond_osm=fond_osm, osm_provider=osm_provider
     )
+
+@app.get("/test-osm")
+def test_osm():
+    try:
+        r = requests.get("https://tile.openstreetmap.org/10/512/354.png", timeout=5)
+        return {"status": r.status_code, "ok": r.ok}
+    except Exception as e:
+        return {"error": str(e)}
