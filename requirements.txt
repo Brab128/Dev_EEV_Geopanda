@@ -3,3 +3,5 @@ uvicorn
 geopandas
 matplotlib
 requests
+contextily
+pyproj

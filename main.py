@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import contextily as ctx
 import requests
 import io
 from shapely.geometry import shape
@@ -16,6 +17,16 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
+
+# --- Providers OSM disponibles ---
+
+OSM_PROVIDERS = {
+    "OpenStreetMap.Mapnik": ctx.providers.OpenStreetMap.Mapnik,
+    "CartoDB.Positron": ctx.providers.CartoDB.Positron,
+    "CartoDB.DarkMatter": ctx.providers.CartoDB.DarkMatter,
+    "CartoDB.PositronNoLabels": ctx.providers.CartoDB.PositronNoLabels,
+    "CartoDB.DarkMatterNoLabels": ctx.providers.CartoDB.DarkMatterNoLabels,
+}
 
 # --- Modèles ---
 
@@ -57,6 +68,8 @@ class CarteEntites(BaseModel):
     entreprise: str = ""
     date: str = ""
     nb_habitants: int = 0
+    fond_osm: bool = False
+    osm_provider: str = "OpenStreetMap.Mapnik"
 
 class CarteGeoJSON(BaseModel):
     geojson: dict
@@ -75,6 +88,8 @@ class CarteGeoJSON(BaseModel):
     entreprise: str = ""
     date: str = ""
     nb_habitants: int = 0
+    fond_osm: bool = False
+    osm_provider: str = "OpenStreetMap.Mapnik"
 
 # --- Helper : construction du footer ---
 
@@ -94,25 +109,53 @@ def build_footer(entreprise, nom, date, nb_habitants):
 
 def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
                epaisseur_contour, remplissage, fond, largeur, hauteur, dpi,
-               title="", footer=""):
+               title="", footer="", fond_osm=False, osm_provider="OpenStreetMap.Mapnik"):
+
     fig, ax = plt.subplots(figsize=(largeur, hauteur))
     fig.patch.set_facecolor(fond)
     ax.set_facecolor(fond)
 
     facecolor = couleur if remplissage else "none"
-    gdf.plot(ax=ax, color=facecolor, edgecolor=couleur_contour, linewidth=epaisseur_contour)
 
-    for m in list(marqueurs) + list(marqueurs_etab):
-        ax.annotate(
-            text=f"{m.icone} {m.texte}".strip(),
-            xy=(m.longitude, m.latitude),
-            fontsize=m.taille,
-            color=m.couleur_texte,
-            ha="center",
-            va="bottom"
+    if fond_osm:
+        # Reprojection en Web Mercator (EPSG:3857) requis par contextily
+        gdf_mercator = gdf.to_crs(epsg=3857)
+        gdf_mercator.plot(
+            ax=ax,
+            color=facecolor,
+            edgecolor=couleur_contour,
+            linewidth=epaisseur_contour,
+            alpha=0.5
         )
+        provider = OSM_PROVIDERS.get(osm_provider, ctx.providers.OpenStreetMap.Mapnik)
+        ctx.add_basemap(ax, source=provider, zoom="auto")
+        ax.set_axis_off()
 
-    ax.axis("off")
+        # Reprojeter les marqueurs en Web Mercator pour les annoter correctement
+        import pyproj
+        transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+        for m in list(marqueurs) + list(marqueurs_etab):
+            x, y = transformer.transform(m.longitude, m.latitude)
+            ax.annotate(
+                text=f"{m.icone} {m.texte}".strip(),
+                xy=(x, y),
+                fontsize=m.taille,
+                color=m.couleur_texte,
+                ha="center",
+                va="bottom"
+            )
+    else:
+        gdf.plot(ax=ax, color=facecolor, edgecolor=couleur_contour, linewidth=epaisseur_contour)
+        for m in list(marqueurs) + list(marqueurs_etab):
+            ax.annotate(
+                text=f"{m.icone} {m.texte}".strip(),
+                xy=(m.longitude, m.latitude),
+                fontsize=m.taille,
+                color=m.couleur_texte,
+                ha="center",
+                va="bottom"
+            )
+        ax.axis("off")
 
     if title:
         fig.text(
@@ -122,7 +165,6 @@ def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
         )
 
     if footer:
-        # Ligne de séparation horizontale
         fig.add_artist(
             plt.Line2D([0.05, 0.95], [0.045, 0.045],
                        transform=fig.transFigure,
@@ -153,7 +195,8 @@ def carte_entites(req: CarteEntites):
         gdf, req.marqueurs, req.marqueurs_etab, req.couleur,
         req.couleur_contour, req.epaisseur_contour, req.remplissage,
         req.fond, req.largeur, req.hauteur, req.dpi,
-        title=req.title, footer=footer
+        title=req.title, footer=footer,
+        fond_osm=req.fond_osm, osm_provider=req.osm_provider
     )
 
 # --- Endpoint 2 : GeoJSON brut ---
@@ -173,14 +216,17 @@ def carte_geojson(req: CarteGeoJSON):
         gdf, req.marqueurs, req.marqueurs_etab, req.couleur,
         req.couleur_contour, req.epaisseur_contour, req.remplissage,
         req.fond, req.largeur, req.hauteur, req.dpi,
-        title=req.title, footer=footer
+        title=req.title, footer=footer,
+        fond_osm=req.fond_osm, osm_provider=req.osm_provider
     )
 
 # --- Endpoint 3 : département par code INSEE (GET) ---
 
 @app.get("/carte/{code}")
 def carte_departement(code: str, couleur: str = "#4A90D9", couleur_contour: str = "black",
-                      epaisseur_contour: float = 1.0, remplissage: bool = True, fond: str = "white"):
+                      epaisseur_contour: float = 1.0, remplissage: bool = True,
+                      fond: str = "white", fond_osm: bool = False,
+                      osm_provider: str = "OpenStreetMap.Mapnik"):
     data = requests.get(
         "https://geo.api.gouv.fr/departements?fields=nom,code&geometry=contour"
     ).json()
@@ -194,5 +240,6 @@ def carte_departement(code: str, couleur: str = "#4A90D9", couleur_contour: str 
         return {"error": f"Département {code} non trouvé"}
     return render_gdf(
         dep, [], [], couleur, couleur_contour, epaisseur_contour,
-        remplissage, fond, 6, 6, 150
+        remplissage, fond, 6, 6, 150,
+        fond_osm=fond_osm, osm_provider=osm_provider
     )
