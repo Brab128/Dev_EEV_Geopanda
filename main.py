@@ -137,24 +137,46 @@ def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
         for m in list(marqueurs) + list(marqueurs_etab):
             x, y = transformer.transform(m.longitude, m.latitude)
             ax.annotate(
-                text=f"{m.icone} {m.texte}".strip(),
+                text=m.icone,
                 xy=(x, y),
                 fontsize=m.taille,
                 color=m.couleur_texte,
                 ha="center",
-                va="bottom"
+                va="center"
             )
+            if m.texte:
+                ax.annotate(
+                    text=m.texte,
+                    xy=(x, y),
+                    fontsize=m.taille * 0.75,
+                    color=m.couleur_texte,
+                    ha="center",
+                    va="top",
+                    xytext=(0, -(m.taille * 0.6)),
+                    textcoords="offset points"
+                )
     else:
         gdf.plot(ax=ax, color=facecolor, edgecolor=couleur_contour, linewidth=epaisseur_contour)
         for m in list(marqueurs) + list(marqueurs_etab):
             ax.annotate(
-                text=f"{m.icone} {m.texte}".strip(),
+                text=m.icone,
                 xy=(m.longitude, m.latitude),
                 fontsize=m.taille,
                 color=m.couleur_texte,
                 ha="center",
-                va="bottom"
+                va="center"
             )
+            if m.texte:
+                ax.annotate(
+                    text=m.texte,
+                    xy=(m.longitude, m.latitude),
+                    fontsize=m.taille * 0.75,
+                    color=m.couleur_texte,
+                    ha="center",
+                    va="top",
+                    xytext=(0, -(m.taille * 0.6)),
+                    textcoords="offset points"
+                )
         ax.axis("off")
 
     if title:

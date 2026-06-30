@@ -3,5 +3,5 @@ uvicorn
 geopandas
 matplotlib
 requests
-contextily
-pyproj
+contextily>=1.6.0
+pyproj>=3.0.0
