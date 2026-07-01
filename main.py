@@ -36,19 +36,19 @@ class Entite(BaseModel):
     contour: dict
 
 class Marqueur(BaseModel):
-    longitude: float
-    latitude: float
+    longitude: float | None = None
+    latitude: float | None = None
     icone: str = "●"
     texte: str = ""
     taille: int = 16
     couleur_texte: str = "black"
 
 class MarqueurEtab(BaseModel):
-    longitude: float
-    latitude: float
+    longitude: float | None = None
+    latitude: float | None = None
     icone: str = "▲"
     texte: str = ""
-    taille: int = 16
+    taille: int = 12
     couleur_texte: str = "red"
 
 class CarteEntites(BaseModel):
@@ -128,13 +128,15 @@ def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
             alpha=0.5
         )
         provider = OSM_PROVIDERS.get(osm_provider, ctx.providers.OpenStreetMap.Mapnik)
-        ctx.add_basemap(ax, source=provider, zoom="auto")
+        ctx.add_basemap(ax, source=provider, zoom="auto", attribution_size=6)
         ax.set_axis_off()
 
         # Reprojeter les marqueurs en Web Mercator pour les annoter correctement
         import pyproj
         transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
         for m in list(marqueurs) + list(marqueurs_etab):
+            if m.longitude is None or m.latitude is None:
+                continue
             x, y = transformer.transform(m.longitude, m.latitude)
             ax.annotate(
                 text=m.icone,
@@ -158,6 +160,8 @@ def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
     else:
         gdf.plot(ax=ax, color=facecolor, edgecolor=couleur_contour, linewidth=epaisseur_contour)
         for m in list(marqueurs) + list(marqueurs_etab):
+            if m.longitude is None or m.latitude is None:
+                continue
             ax.annotate(
                 text=m.icone,
                 xy=(m.longitude, m.latitude),
