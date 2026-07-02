@@ -42,6 +42,9 @@ class Marqueur(BaseModel):
     texte: str = ""
     taille: int = 16
     couleur_texte: str = "black"
+    banniere: bool = False
+    couleur_banniere: str = "#008EAA"
+    couleur_texte_banniere: str = "white"
 
 class MarqueurEtab(BaseModel):
     longitude: float | None = None
@@ -50,6 +53,9 @@ class MarqueurEtab(BaseModel):
     texte: str = ""
     taille: int = 12
     couleur_texte: str = "red"
+    banniere: bool = False
+    couleur_banniere: str = "#E35205"
+    couleur_texte_banniere: str = "white"
 
 class CarteEntites(BaseModel):
     entites: List[Entite]
@@ -146,16 +152,29 @@ def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
                 ha="center",
                 va="center"
             )
-            if m.texte:
+            if m.texte and m.banniere:
                 ax.annotate(
                     text=m.texte,
                     xy=(x, y),
-                    fontsize=m.taille * 0.75,
-                    color=m.couleur_texte,
+                    xytext=(0, -14),
+                    textcoords="offset points",
+                    fontsize=max(m.taille * 0.65, 7),
+                    color=m.couleur_texte_banniere,
                     ha="center",
                     va="top",
-                    xytext=(0, -(m.taille * 0.6)),
-                    textcoords="offset points"
+                    bbox=dict(boxstyle="round,pad=0.35", facecolor=m.couleur_banniere, edgecolor="none", alpha=0.92),
+                    zorder=5
+                )
+            elif m.texte:
+                ax.annotate(
+                    text=m.texte,
+                    xy=(x, y),
+                    xytext=(0, -14),
+                    textcoords="offset points",
+                    fontsize=max(m.taille * 0.65, 7),
+                    color=m.couleur_texte,
+                    ha="center",
+                    va="top"
                 )
     else:
         gdf.plot(ax=ax, color=facecolor, edgecolor=couleur_contour, linewidth=epaisseur_contour)
@@ -170,16 +189,29 @@ def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
                 ha="center",
                 va="center"
             )
-            if m.texte:
+            if m.texte and m.banniere:
                 ax.annotate(
                     text=m.texte,
                     xy=(m.longitude, m.latitude),
-                    fontsize=m.taille * 0.75,
-                    color=m.couleur_texte,
+                    xytext=(0, -14),
+                    textcoords="offset points",
+                    fontsize=max(m.taille * 0.65, 7),
+                    color=m.couleur_texte_banniere,
                     ha="center",
                     va="top",
-                    xytext=(0, -(m.taille * 0.6)),
-                    textcoords="offset points"
+                    bbox=dict(boxstyle="round,pad=0.35", facecolor=m.couleur_banniere, edgecolor="none", alpha=0.92),
+                    zorder=5
+                )
+            elif m.texte:
+                ax.annotate(
+                    text=m.texte,
+                    xy=(m.longitude, m.latitude),
+                    xytext=(0, -14),
+                    textcoords="offset points",
+                    fontsize=max(m.taille * 0.65, 7),
+                    color=m.couleur_texte,
+                    ha="center",
+                    va="top"
                 )
         ax.axis("off")
 
