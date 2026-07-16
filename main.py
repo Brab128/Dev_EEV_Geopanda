@@ -131,6 +131,7 @@ def plot_marqueurs(ax, marqueurs, marqueurs_etab, project):
     coordonnées WGS84 (fond blanc) ou Web Mercator (fond OSM).
     """
     texts = []
+    icon_artists = []  # objets fixes que les labels doivent éviter (vraie taille du glyphe)
     marker_xs = []
     marker_ys = []
 
@@ -142,16 +143,21 @@ def plot_marqueurs(ax, marqueurs, marqueurs_etab, project):
         marker_xs.append(x)
         marker_ys.append(y)
 
-        # L'icône reste toujours à la position géographique exacte
-        ax.annotate(
-            text=m.icone,
-            xy=(x, y),
+        # L'icône reste toujours à la position géographique exacte.
+        # On utilise ax.text() (et non ax.annotate()) pour pouvoir passer cet
+        # objet à adjust_text() comme obstacle à éviter avec sa vraie taille
+        # de rendu (bounding box réelle du glyphe), et non un point de taille
+        # zéro — c'est ce qui empêchait correctement les labels de recouvrir
+        # le point.
+        icon = ax.text(
+            x, y, m.icone,
             fontsize=m.taille,
             color=m.couleur_texte,
             ha="center",
             va="center",
             zorder=6,
         )
+        icon_artists.append(icon)
 
         if not m.texte:
             continue
@@ -182,10 +188,13 @@ def plot_marqueurs(ax, marqueurs, marqueurs_etab, project):
             x=marker_xs,
             y=marker_ys,
             ax=ax,
-            expand_text=(1.1, 1.3),
-            expand_points=(1.5, 1.5),
-            force_text=(0.4, 0.6),
-            force_points=(0.3, 0.5),
+            add_objects=icon_artists,   # obstacles fixes (icônes) à éviter avec leur vraie taille
+            expand_text=(1.2, 1.4),
+            expand_points=(2.0, 2.4),
+            expand_objects=(1.8, 2.2),
+            force_text=(0.5, 0.7),
+            force_points=(0.6, 0.8),
+            force_objects=(0.6, 0.8),
             arrowprops=dict(arrowstyle="-", color="#666666", lw=0.6, shrinkA=2, shrinkB=2),
         )
 
