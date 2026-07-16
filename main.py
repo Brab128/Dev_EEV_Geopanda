@@ -40,7 +40,7 @@ class Marqueur(BaseModel):
     latitude: float | None = None
     icone: str = "●"
     texte: str = ""
-    taille: int = 10
+    taille: int = 16
     couleur_texte: str = "black"
     banniere: bool = False
     couleur_banniere: str = "#008EAA"
@@ -195,7 +195,7 @@ def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
                     xy=(m.longitude, m.latitude),
                     xytext=(0, -14),
                     textcoords="offset points",
-                    fontsize=max(m.taille * 0.65, 7),
+                    fontsize=max(m.taille * 0.45, 5),
                     color=m.couleur_texte_banniere,
                     ha="center",
                     va="top",
@@ -208,7 +208,7 @@ def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
                     xy=(m.longitude, m.latitude),
                     xytext=(0, -14),
                     textcoords="offset points",
-                    fontsize=max(m.taille * 0.65, 7),
+                    fontsize=max(m.taille * 0.45, 5),
                     color=m.couleur_texte,
                     ha="center",
                     va="top"
