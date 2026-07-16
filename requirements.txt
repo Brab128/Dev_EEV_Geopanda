@@ -3,5 +3,6 @@ uvicorn
 geopandas
 matplotlib
 requests
+adjustText
 contextily>=1.6.0
 pyproj>=3.0.0
