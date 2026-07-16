@@ -40,7 +40,7 @@ class Marqueur(BaseModel):
     latitude: float | None = None
     icone: str = "●"
     texte: str = ""
-    taille: int = 16
+    taille: int = 10
     couleur_texte: str = "black"
     banniere: bool = False
     couleur_banniere: str = "#008EAA"
