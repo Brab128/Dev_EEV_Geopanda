@@ -5,9 +5,11 @@ from typing import List
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import contextily as ctx
+import pyproj
 import requests
 import io
 from shapely.geometry import shape
+from adjustText import adjust_text
 
 app = FastAPI()
 
@@ -27,6 +29,9 @@ OSM_PROVIDERS = {
     "CartoDB.PositronNoLabels": ctx.providers.CartoDB.PositronNoLabels,
     "CartoDB.DarkMatterNoLabels": ctx.providers.CartoDB.DarkMatterNoLabels,
 }
+
+# Transformer réutilisable pour la reprojection WGS84 -> Web Mercator
+_TO_MERCATOR = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 
 # --- Modèles ---
 
@@ -113,6 +118,77 @@ def build_footer(entreprise, nom, date, nb_habitants):
         parties.append(f"{nb_habitants:,} habitants".replace(",", "\u00a0"))
     return "  |  ".join(parties)
 
+# --- Helper : placement des marqueurs + labels anti-collision ---
+
+def plot_marqueurs(ax, marqueurs, marqueurs_etab, project):
+    """
+    Dessine les icônes à leur position exacte (fixe) et les libellés texte
+    dans des objets ax.text() séparés, puis laisse adjustText repositionner
+    ces libellés pour éviter les chevauchements. Une fine ligne grise relie
+    le libellé à son point d'origine quand il a dû être déplacé.
+
+    `project(lon, lat) -> (x, y)` permet de gérer indifféremment les
+    coordonnées WGS84 (fond blanc) ou Web Mercator (fond OSM).
+    """
+    texts = []
+    marker_xs = []
+    marker_ys = []
+
+    for m in list(marqueurs) + list(marqueurs_etab):
+        if m.longitude is None or m.latitude is None:
+            continue
+
+        x, y = project(m.longitude, m.latitude)
+        marker_xs.append(x)
+        marker_ys.append(y)
+
+        # L'icône reste toujours à la position géographique exacte
+        ax.annotate(
+            text=m.icone,
+            xy=(x, y),
+            fontsize=m.taille,
+            color=m.couleur_texte,
+            ha="center",
+            va="center",
+            zorder=6,
+        )
+
+        if not m.texte:
+            continue
+
+        if m.banniere:
+            t = ax.text(
+                x, y, m.texte,
+                fontsize=m.taille_banniere,
+                color=m.couleur_texte_banniere,
+                ha="center", va="center",
+                bbox=dict(boxstyle="round,pad=0.35", facecolor=m.couleur_banniere,
+                          edgecolor="none", alpha=0.92),
+                zorder=5,
+            )
+        else:
+            t = ax.text(
+                x, y, m.texte,
+                fontsize=m.taille_banniere,
+                color=m.couleur_texte,
+                ha="center", va="center",
+                zorder=5,
+            )
+        texts.append(t)
+
+    if texts:
+        adjust_text(
+            texts,
+            x=marker_xs,
+            y=marker_ys,
+            ax=ax,
+            expand_text=(1.1, 1.3),
+            expand_points=(1.5, 1.5),
+            force_text=(0.4, 0.6),
+            force_points=(0.3, 0.5),
+            arrowprops=dict(arrowstyle="-", color="#666666", lw=0.6, shrinkA=2, shrinkB=2),
+        )
+
 # --- Helper commun ---
 
 def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
@@ -133,89 +209,22 @@ def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
             color=facecolor,
             edgecolor=couleur_contour,
             linewidth=epaisseur_contour,
-            alpha=0.5
+            alpha=0.5,
         )
         provider = OSM_PROVIDERS.get(osm_provider, ctx.providers.OpenStreetMap.Mapnik)
         ctx.add_basemap(ax, source=provider, zoom="auto", attribution_size=6)
         ax.set_axis_off()
 
-        # Reprojeter les marqueurs en Web Mercator pour les annoter correctement
-        import pyproj
-        transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
-        for m in list(marqueurs) + list(marqueurs_etab):
-            if m.longitude is None or m.latitude is None:
-                continue
-            x, y = transformer.transform(m.longitude, m.latitude)
-            ax.annotate(
-                text=m.icone,
-                xy=(x, y),
-                fontsize=m.taille,
-                color=m.couleur_texte,
-                ha="center",
-                va="center"
-            )
-            if m.texte and m.banniere:
-                ax.annotate(
-                    text=m.texte,
-                    xy=(x, y),
-                    xytext=(0, -14),
-                    textcoords="offset points",
-                    fontsize=m.taille_banniere,
-                    color=m.couleur_texte_banniere,
-                    ha="center",
-                    va="top",
-                    bbox=dict(boxstyle="round,pad=0.35", facecolor=m.couleur_banniere, edgecolor="none", alpha=0.92),
-                    zorder=5
-                )
-            elif m.texte:
-                ax.annotate(
-                    text=m.texte,
-                    xy=(x, y),
-                    xytext=(0, -14),
-                    textcoords="offset points",
-                    fontsize=m.taille_banniere,
-                    color=m.couleur_texte,
-                    ha="center",
-                    va="top"
-                )
+        def project(lon, lat):
+            return _TO_MERCATOR.transform(lon, lat)
     else:
         gdf.plot(ax=ax, color=facecolor, edgecolor=couleur_contour, linewidth=epaisseur_contour)
-        for m in list(marqueurs) + list(marqueurs_etab):
-            if m.longitude is None or m.latitude is None:
-                continue
-            ax.annotate(
-                text=m.icone,
-                xy=(m.longitude, m.latitude),
-                fontsize=m.taille,
-                color=m.couleur_texte,
-                ha="center",
-                va="center"
-            )
-            if m.texte and m.banniere:
-                ax.annotate(
-                    text=m.texte,
-                    xy=(m.longitude, m.latitude),
-                    xytext=(0, -14),
-                    textcoords="offset points",
-                    fontsize=m.taille_banniere,
-                    color=m.couleur_texte_banniere,
-                    ha="center",
-                    va="top",
-                    bbox=dict(boxstyle="round,pad=0.35", facecolor=m.couleur_banniere, edgecolor="none", alpha=0.92),
-                    zorder=5
-                )
-            elif m.texte:
-                ax.annotate(
-                    text=m.texte,
-                    xy=(m.longitude, m.latitude),
-                    xytext=(0, -14),
-                    textcoords="offset points",
-                    fontsize=m.taille_banniere,
-                    color=m.couleur_texte,
-                    ha="center",
-                    va="top"
-                )
         ax.axis("off")
+
+        def project(lon, lat):
+            return lon, lat
+
+    plot_marqueurs(ax, marqueurs, marqueurs_etab, project)
 
     if title:
         fig.text(
