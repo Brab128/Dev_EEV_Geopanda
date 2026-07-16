@@ -41,6 +41,7 @@ class Marqueur(BaseModel):
     icone: str = "●"
     texte: str = ""
     taille: int = 16
+    taille_banniere: int = 7
     couleur_texte: str = "black"
     banniere: bool = False
     couleur_banniere: str = "#008EAA"
@@ -52,6 +53,7 @@ class MarqueurEtab(BaseModel):
     icone: str = "▲"
     texte: str = ""
     taille: int = 12
+    taille_banniere: int = 7
     couleur_texte: str = "red"
     banniere: bool = False
     couleur_banniere: str = "#E35205"
@@ -158,7 +160,7 @@ def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
                     xy=(x, y),
                     xytext=(0, -14),
                     textcoords="offset points",
-                    fontsize=max(m.taille * 0.65, 7),
+                    fontsize=m.taille_banniere,
                     color=m.couleur_texte_banniere,
                     ha="center",
                     va="top",
@@ -171,7 +173,7 @@ def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
                     xy=(x, y),
                     xytext=(0, -14),
                     textcoords="offset points",
-                    fontsize=max(m.taille * 0.65, 7),
+                    fontsize=m.taille_banniere,
                     color=m.couleur_texte,
                     ha="center",
                     va="top"
@@ -195,7 +197,7 @@ def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
                     xy=(m.longitude, m.latitude),
                     xytext=(0, -14),
                     textcoords="offset points",
-                    fontsize=max(m.taille * 0.25, 5),
+                    fontsize=m.taille_banniere,
                     color=m.couleur_texte_banniere,
                     ha="center",
                     va="top",
@@ -208,7 +210,7 @@ def render_gdf(gdf, marqueurs, marqueurs_etab, couleur, couleur_contour,
                     xy=(m.longitude, m.latitude),
                     xytext=(0, -14),
                     textcoords="offset points",
-                    fontsize=max(m.taille * 0.25, 5),
+                    fontsize=m.taille_banniere,
                     color=m.couleur_texte,
                     ha="center",
                     va="top"
